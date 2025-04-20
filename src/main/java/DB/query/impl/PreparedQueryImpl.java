@@ -1,15 +1,13 @@
 package DB.query.impl;
 
-import DB.query.interfaces.PreparedQuery;
-import DB.query.interfaces.QueryExecutor;
+import DB.query.interfaces.QueryComponents.ExtendedQueryExecutor;
+import DB.query.interfaces.QueryComponents.PreparedQuery;
+import DB.query.interfaces.QueryComponents.QueryType;
 import DB.record.models.Record;
 import DB.transaction.interfaces.TransactionManager;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * 预编译查询实现
@@ -17,113 +15,75 @@ import java.util.regex.Pattern;
 @Slf4j
 public class PreparedQueryImpl implements PreparedQuery {
     private final String sql;
-    private final QueryExecutor queryExecutor;
-    private final Object[] params;
+    private final ExtendedQueryExecutor queryExecutor;
     private final int paramCount;
-    
-    // 参数占位符正则表达式
-    private static final Pattern PARAM_PATTERN = Pattern.compile("\\?");
+    private final QueryType queryType;
 
     /**
      * 构造函数
      * @param sql 带参数占位符的SQL
      * @param queryExecutor 查询执行器
      */
-    public PreparedQueryImpl(String sql, QueryExecutor queryExecutor) {
-        this.sql = sql;
-        this.queryExecutor = queryExecutor;
-        this.paramCount = countParams(sql);
-        this.params = new Object[paramCount];
+    public PreparedQueryImpl(String sql, ExtendedQueryExecutor queryExecutor) {
+        this(sql, null, queryExecutor);
     }
 
     /**
-     * 计算SQL中的参数占位符数量
-     * @param sql SQL语句
-     * @return 参数数量
+     * 带查询类型的构造函数
+     * @param sql 带参数占位符的SQL
+     * @param queryType 查询类型
+     * @param queryExecutor 查询执行器
      */
-    private int countParams(String sql) {
-        Matcher matcher = PARAM_PATTERN.matcher(sql);
-        int count = 0;
-        while (matcher.find()) {
-            count++;
-        }
-        return count;
+    public PreparedQueryImpl(String sql, QueryType queryType, ExtendedQueryExecutor queryExecutor) {
+        this.sql = sql;
+        this.queryExecutor = queryExecutor;
+        this.queryType = queryType;
+        this.paramCount = SqlParameterUtils.countParams(sql);
     }
 
     @Override
     public List<Record> execute(Object[] params, TransactionManager transactionManager) {
         if (params.length != paramCount) {
-            throw new IllegalArgumentException("Expected " + paramCount + " parameters, but got " + params.length);
+            throw new IllegalArgumentException("预期 " + paramCount + " 个参数，但是收到 " + params.length + " 个参数");
         }
-        
+
         // 替换参数占位符
-        String finalSql = replacePlaceholders(sql, params);
-        
+        String finalSql = SqlParameterUtils.applyParams(sql, params);
+
         // 执行查询
         try {
             return queryExecutor.executeQuery(finalSql);
         } catch (Exception e) {
-            log.error("Failed to execute query: {}", finalSql, e);
-            throw new RuntimeException("Query execution failed", e);
+            log.error("执行查询失败: {}", finalSql, e);
+            throw new RuntimeException("查询执行失败", e);
         }
     }
 
     @Override
     public int executeUpdate(Object[] params, TransactionManager transactionManager) {
-        if (params.length != paramCount) {
-            throw new IllegalArgumentException("Expected " + paramCount + " parameters, but got " + params.length);
+        if (queryType != null && queryType == QueryType.SELECT) {
+            throw new IllegalArgumentException("不能使用executeUpdate方法执行SELECT查询");
         }
-        
+
+        if (params.length != paramCount) {
+            throw new IllegalArgumentException("预期 " + paramCount + " 个参数，但是收到 " + params.length + " 个参数");
+        }
+
         // 替换参数占位符
-        String finalSql = replacePlaceholders(sql, params);
-        
+        String finalSql = SqlParameterUtils.applyParams(sql, params);
+
         // 执行更新
         try {
-            // 执行查询（对于UPDATE/INSERT/DELETE会返回空记录列表）
-            queryExecutor.executeQuery(finalSql);
-            // 这里应该返回实际影响的行数，但现在简化处理
-            return 1;
+            return queryExecutor.executeUpdate(finalSql);
         } catch (Exception e) {
-            log.error("Failed to execute update: {}", finalSql, e);
-            throw new RuntimeException("Update execution failed", e);
+            log.error("执行更新失败: {}", finalSql, e);
+            throw new RuntimeException("更新执行失败", e);
         }
     }
 
     @Override
     public void close() {
         // 释放资源
-        log.debug("Closing prepared query");
+        log.debug("关闭预编译查询");
     }
-
-    /**
-     * 替换SQL中的参数占位符
-     * @param sql SQL语句
-     * @param params 参数值
-     * @return 替换后的SQL
-     */
-    private String replacePlaceholders(String sql, Object[] params) {
-        StringBuilder result = new StringBuilder();
-        Matcher matcher = PARAM_PATTERN.matcher(sql);
-        int lastEnd = 0;
-        int paramIndex = 0;
-        
-        while (matcher.find() && paramIndex < params.length) {
-            result.append(sql, lastEnd, matcher.start());
-            Object param = params[paramIndex++];
-            
-            // 根据参数类型格式化
-            if (param == null) {
-                result.append("NULL");
-            } else if (param instanceof String) {
-                result.append("'").append(param).append("'");
-            } else {
-                result.append(param);
-            }
-            
-            lastEnd = matcher.end();
-        }
-        
-        result.append(sql.substring(lastEnd));
-        return result.toString();
-    }
-} 
+}

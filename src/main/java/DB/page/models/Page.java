@@ -45,6 +45,11 @@ public class Page {
         public void setIsLeaf(boolean isLeaf) {
             this.isLeaf = isLeaf;
         }
+        
+        // 添加缺失的getIsLeaf方法
+        public boolean getIsLeaf() {
+            return this.isLeaf;
+        }
     }
 
     // 页面类型枚举

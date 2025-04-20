@@ -70,4 +70,29 @@ public class Lock {
         lock.readLock().unlock();
         lock.writeLock().lock();
     }
+
+    // 添加显式的getter方法
+    public long getXid() {
+        return xid;
+    }
+    
+    public LockType getType() {
+        return type;
+    }
+    
+    public int getPageId() {
+        return pageId;
+    }
+    
+    public int getSlotId() {
+        return slotId;
+    }
+    
+    public long getTimestamp() {
+        return timestamp;
+    }
+    
+    public ReentrantReadWriteLock getLock() {
+        return lock;
+    }
 } 

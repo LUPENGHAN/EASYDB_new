@@ -54,4 +54,101 @@ public class Record {
     public void setFieldValue(String fieldName, Object value) {
         fields.put(fieldName, value);
     }
+    
+    // 显式getter/setter方法
+    public short getLength() {
+        return length;
+    }
+    
+    public void setLength(short length) {
+        this.length = length;
+    }
+    
+    public byte getStatus() {
+        return status;
+    }
+    
+    public void setStatus(byte status) {
+        this.status = status;
+    }
+    
+    public long getXid() {
+        return xid;
+    }
+    
+    public void setXid(long xid) {
+        this.xid = xid;
+    }
+    
+    public long getBeginTS() {
+        return beginTS;
+    }
+    
+    public void setBeginTS(long beginTS) {
+        this.beginTS = beginTS;
+    }
+    
+    public long getEndTS() {
+        return endTS;
+    }
+    
+    public void setEndTS(long endTS) {
+        this.endTS = endTS;
+    }
+    
+    public long getPrevVersionPointer() {
+        return prevVersionPointer;
+    }
+    
+    public void setPrevVersionPointer(long prevVersionPointer) {
+        this.prevVersionPointer = prevVersionPointer;
+    }
+    
+    public byte[] getNullBitmap() {
+        return nullBitmap;
+    }
+    
+    public void setNullBitmap(byte[] nullBitmap) {
+        this.nullBitmap = nullBitmap;
+    }
+    
+    public short[] getFieldOffsets() {
+        return fieldOffsets;
+    }
+    
+    public void setFieldOffsets(short[] fieldOffsets) {
+        this.fieldOffsets = fieldOffsets;
+    }
+    
+    public byte[] getData() {
+        return data;
+    }
+    
+    public void setData(byte[] data) {
+        this.data = data;
+    }
+    
+    public int getPageId() {
+        return pageId;
+    }
+    
+    public void setPageId(int pageId) {
+        this.pageId = pageId;
+    }
+    
+    public int getSlotId() {
+        return slotId;
+    }
+    
+    public void setSlotId(int slotId) {
+        this.slotId = slotId;
+    }
+    
+    public Map<String, Object> getFields() {
+        return fields;
+    }
+    
+    public void setFields(Map<String, Object> fields) {
+        this.fields = fields;
+    }
 }

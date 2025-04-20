@@ -39,6 +39,30 @@ public class Table {
         private List<String> refColumns;    // 引用列名列表
         private String onDelete;            // 删除时的动作
         private String onUpdate;            // 更新时的动作
+        
+        public String getName() {
+            return name;
+        }
+        
+        public List<String> getColumns() {
+            return columns;
+        }
+        
+        public String getRefTable() {
+            return refTable;
+        }
+        
+        public List<String> getRefColumns() {
+            return refColumns;
+        }
+        
+        public String getOnDelete() {
+            return onDelete;
+        }
+        
+        public String getOnUpdate() {
+            return onUpdate;
+        }
     }
 
     /**

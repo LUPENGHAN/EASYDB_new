@@ -31,6 +31,14 @@ public class LogRecord {
     private int operationType;
     private byte[] undoData = new byte[0];
 
+    public int getPageId() {
+        return pageID;
+    }
+
+    public int getPageID() {
+        return pageID;
+    }
+
     public static LogRecord createRedoLog(long xid, int pageID, short offset, byte[] newData) {
         LogRecord log = new LogRecord();
         log.logType = TYPE_REDO;

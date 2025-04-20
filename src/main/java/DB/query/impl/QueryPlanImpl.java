@@ -1,23 +1,35 @@
 package DB.query.impl;
 
 import DB.index.interfaces.IndexManager;
-import DB.query.interfaces.QueryOptimizer;
+import DB.query.interfaces.QueryComponents.QueryPlan;
+import DB.query.interfaces.QueryComponents.QueryType;
 import DB.transaction.interfaces.TransactionManager;
 
 import java.util.List;
 
-public class QueryPlanImpl implements QueryOptimizer.QueryPlan {
-    private final QueryOptimizer.QueryType queryType;
+/**
+ * 查询计划实现类
+ * 封装了执行查询所需的所有信息
+ */
+public class QueryPlanImpl implements QueryPlan {
+    private final QueryType queryType;
     private final String tableName;
     private final String condition;
     private final List<String> selectedColumns;
     private final String indexName;
     private final IndexManager indexManager;
     private final TransactionManager transactionManager;
+    private final String metadata; // 存储原始查询字符串
 
-    public QueryPlanImpl(QueryOptimizer.QueryType queryType, String tableName, String condition,
-                        List<String> selectedColumns, String indexName,
-                        IndexManager indexManager, TransactionManager transactionManager) {
+    public QueryPlanImpl(
+            QueryType queryType,
+            String tableName,
+            String condition,
+            List<String> selectedColumns,
+            String indexName,
+            IndexManager indexManager,
+            TransactionManager transactionManager,
+            String metadata) {
         this.queryType = queryType;
         this.tableName = tableName;
         this.condition = condition;
@@ -25,10 +37,11 @@ public class QueryPlanImpl implements QueryOptimizer.QueryPlan {
         this.indexName = indexName;
         this.indexManager = indexManager;
         this.transactionManager = transactionManager;
+        this.metadata = metadata;
     }
 
     @Override
-    public QueryOptimizer.QueryType getQueryType() {
+    public QueryType getQueryType() {
         return queryType;
     }
 
@@ -61,4 +74,9 @@ public class QueryPlanImpl implements QueryOptimizer.QueryPlan {
     public TransactionManager getTransactionManager() {
         return transactionManager;
     }
-} 
+
+    @Override
+    public String getMetadata() {
+        return metadata;
+    }
+}

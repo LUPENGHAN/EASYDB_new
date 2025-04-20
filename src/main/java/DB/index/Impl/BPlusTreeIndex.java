@@ -122,7 +122,7 @@ public class BPlusTreeIndex implements IndexManager {
     }
 
     private void insert(Page page, Object key, Record record) {
-        if (page.getHeader().isLeaf()) {
+        if (page.getHeader().getIsLeaf()) {
             // 叶子节点插入
             int keyCount = page.getHeader().getKeyCount();
             if (keyCount < order - 1) {
@@ -145,7 +145,7 @@ public class BPlusTreeIndex implements IndexManager {
     }
 
     private void delete(Page page, Object key, Record record) {
-        if (page.getHeader().isLeaf()) {
+        if (page.getHeader().getIsLeaf()) {
             // 叶子节点删除
             deleteFromLeaf(page, key, record);
             
@@ -168,7 +168,7 @@ public class BPlusTreeIndex implements IndexManager {
     private List<Record> rangeSearch(Page page, Object minKey, Object maxKey) {
         List<Record> result = new ArrayList<>();
         
-        if (page.getHeader().isLeaf()) {
+        if (page.getHeader().getIsLeaf()) {
             // 叶子节点范围查询
             int keyCount = page.getHeader().getKeyCount();
             for (int i = 0; i < keyCount; i++) {
@@ -193,7 +193,7 @@ public class BPlusTreeIndex implements IndexManager {
     }
 
     private List<Record> search(Page page, Object key) {
-        if (page.getHeader().isLeaf()) {
+        if (page.getHeader().getIsLeaf()) {
             // 叶子节点精确查询
             int keyCount = page.getHeader().getKeyCount();
             for (int i = 0; i < keyCount; i++) {
@@ -436,7 +436,7 @@ public class BPlusTreeIndex implements IndexManager {
     }
 
     private Page findParentHelper(Page current, Page target) {
-        if (current.getHeader().isLeaf()) {
+        if (current.getHeader().getIsLeaf()) {
             return null;
         }
 

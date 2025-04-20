@@ -49,7 +49,8 @@ public class PageManagerImpl implements PageManager {
 
     @Override
     public Page createPage() {
-        int pageId = nextPageId.getAndIncrement();
+        // 确保pageId是正数，从1开始递增
+        int pageId = nextPageId.incrementAndGet(); // 使用incrementAndGet()而不是getAndIncrement()
         Page page = new Page(pageId);
         pageCache.put(pageId, page);
         return page;
@@ -336,17 +337,32 @@ public class PageManagerImpl implements PageManager {
             buffer.putLong(record.getEndTS());
             buffer.putLong(record.getPrevVersionPointer());
             
-            // 写入null位图
-            buffer.put(record.getNullBitmap());
+            // 写入null位图（确保不为null）
+            byte[] nullBitmap = record.getNullBitmap();
+            if (nullBitmap == null) {
+                // 如果nullBitmap为null，创建一个空位图（全为0，表示没有NULL值）
+                int nullBitmapLength = (page.getRecords().size() + 7) / 8;
+                nullBitmap = new byte[nullBitmapLength > 0 ? nullBitmapLength : 1];
+            }
+            buffer.put(nullBitmap);
             
-            // 写入字段偏移
-            buffer.putShort((short)record.getFieldOffsets().length);
-            for (short offset : record.getFieldOffsets()) {
+            // 写入字段偏移（确保不为null）
+            short[] fieldOffsets = record.getFieldOffsets();
+            if (fieldOffsets == null) {
+                fieldOffsets = new short[0];
+            }
+            buffer.putShort((short)fieldOffsets.length);
+            for (short offset : fieldOffsets) {
                 buffer.putShort(offset);
             }
             
-            // 写入记录数据
-            buffer.put(record.getData());
+            // 写入记录数据（确保不为null）
+            byte[] data = record.getData();
+            if (data == null) {
+                // 如果数据为null，使用空数组
+                data = new byte[0];
+            }
+            buffer.put(data);
         }
         
         // 填充剩余空间
