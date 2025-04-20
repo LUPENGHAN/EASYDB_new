@@ -1,7 +1,6 @@
 package DB.log.interfaces;
 
 import DB.log.models.LogRecord;
-import DB.record.models.Record;
 import java.util.List;
 
 /**

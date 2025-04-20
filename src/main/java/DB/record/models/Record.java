@@ -5,6 +5,9 @@ import lombok.Builder;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -29,4 +32,26 @@ public class Record {
     // 记录引用
     int pageId;               // 记录所在页面ID
     int slotId;               // 记录所在槽位ID
+    
+    // 字段值映射（用于高级操作）
+    @Builder.Default
+    private Map<String, Object> fields = new HashMap<>();
+    
+    /**
+     * 获取字段值
+     * @param fieldName 字段名
+     * @return 字段值
+     */
+    public Object getFieldValue(String fieldName) {
+        return fields.get(fieldName);
+    }
+    
+    /**
+     * 设置字段值
+     * @param fieldName 字段名
+     * @param value 字段值
+     */
+    public void setFieldValue(String fieldName, Object value) {
+        fields.put(fieldName, value);
+    }
 }

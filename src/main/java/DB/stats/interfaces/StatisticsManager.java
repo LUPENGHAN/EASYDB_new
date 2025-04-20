@@ -79,7 +79,7 @@ public interface StatisticsManager {
         private long rowCount;
         private long pageCount;
         private Map<String, ColumnStats> columnStats;
-        private Map<String, IndexStats> indexStats;
+        private Map<String, String> indexStats;
 
         // Getters and setters
     }

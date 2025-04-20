@@ -11,15 +11,15 @@ import java.util.List;
 public interface PreparedQuery {
     /**
      * 执行预编译查询
-     * @param params 查询参数
+     * @param params 参数数组
      * @param transactionManager 事务管理器
-     * @return 查询结果记录列表
+     * @return 查询结果
      */
     List<Record> execute(Object[] params, TransactionManager transactionManager);
 
     /**
      * 执行预编译更新
-     * @param params 更新参数
+     * @param params 参数数组
      * @param transactionManager 事务管理器
      * @return 影响的行数
      */

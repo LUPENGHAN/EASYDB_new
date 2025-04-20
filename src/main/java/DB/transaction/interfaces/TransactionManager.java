@@ -18,15 +18,15 @@ public interface TransactionManager {
 
     /**
      * 提交事务
-     * @param transactionId 事务ID
+     * @param xid 事务ID
      */
-    void commitTransaction(long transactionId);
+    void commitTransaction(long xid);
 
     /**
      * 回滚事务
-     * @param transactionId 事务ID
+     * @param xid 事务ID
      */
-    void rollbackTransaction(long transactionId);
+    void rollbackTransaction(long xid);
 
     /**
      * 获取事务状态

@@ -1,9 +1,8 @@
 package DB.query.interfaces;
 
 import DB.record.models.Record;
-import DB.transaction.interfaces.TransactionManager;
-
 import java.util.List;
+import java.util.Map;
 
 /**
  * 查询执行器接口
@@ -11,50 +10,50 @@ import java.util.List;
 public interface QueryExecutor {
     /**
      * 执行SQL查询
-     * @param sql SQL查询语句
-     * @param transactionManager 事务管理器
-     * @return 查询结果记录列表
+     * @param sql SQL语句
+     * @return 结果记录列表
      */
-    List<Record> execute(String sql, TransactionManager transactionManager);
+    List<Record> executeQuery(String sql);
 
     /**
-     * 执行SQL更新操作
-     * @param sql SQL更新语句
-     * @param transactionManager 事务管理器
+     * 执行SELECT查询
+     * @param tableName 表名
+     * @param condition 查询条件
+     * @param selectedColumns 选择的列
+     * @return 结果记录列表
+     */
+    List<Record> executeSelect(String tableName, String condition, List<String> selectedColumns);
+
+    /**
+     * 执行INSERT语句
+     * @param tableName 表名
+     * @param columns 列名
+     * @param values 值
      * @return 影响的行数
      */
-    int executeUpdate(String sql, TransactionManager transactionManager);
+    int executeInsert(String tableName, List<String> columns, List<Object> values);
 
     /**
-     * 预编译SQL查询
-     * @param sql SQL查询语句
+     * 执行UPDATE语句
+     * @param tableName 表名
+     * @param setValues 设置的值
+     * @param condition 条件
+     * @return 影响的行数
+     */
+    int executeUpdate(String tableName, Map<String, Object> setValues, String condition);
+
+    /**
+     * 执行DELETE语句
+     * @param tableName 表名
+     * @param condition 条件
+     * @return 影响的行数
+     */
+    int executeDelete(String tableName, String condition);
+
+    /**
+     * 预编译SQL语句
+     * @param sql SQL语句
      * @return 预编译查询对象
      */
     PreparedQuery prepare(String sql);
-
-    /**
-     * 预编译查询接口
-     */
-    interface PreparedQuery {
-        /**
-         * 设置参数
-         * @param index 参数索引
-         * @param value 参数值
-         */
-        void setParameter(int index, Object value);
-
-        /**
-         * 执行查询
-         * @param transactionManager 事务管理器
-         * @return 查询结果
-         */
-        List<Record> execute(TransactionManager transactionManager);
-
-        /**
-         * 执行更新
-         * @param transactionManager 事务管理器
-         * @return 影响的行数
-         */
-        int executeUpdate(TransactionManager transactionManager);
-    }
 } 
