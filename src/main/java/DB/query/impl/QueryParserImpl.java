@@ -1,5 +1,6 @@
 package DB.query.impl;
 
+import DB.query.interfaces.QueryComponents;
 import DB.query.interfaces.QueryComponents.QueryParser;
 import DB.query.interfaces.QueryComponents.QueryType;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,9 @@ public class QueryParserImpl implements QueryParser {
     private static final Pattern DELETE_PATTERN = Pattern.compile(
             "DELETE\\s+FROM\\s+(\\w+)(?:\\s+WHERE\\s+(.+))?\\s*;?",
             Pattern.CASE_INSENSITIVE);
+    private static final Pattern CREATE_TABLE_PATTERN = Pattern.compile(
+            "CREATE\\s+TABLE\\s+(\\w+)\\s*\\((.+?)\\)\\s*;?",
+            Pattern.CASE_INSENSITIVE);
     // 条件表达式模式
     private static final Pattern CONDITION_PATTERN = Pattern.compile(
             "(\\w+)\\s*([=<>!]+)\\s*('[^']*'|\\d+|\\w+|true|false|null)",
@@ -35,7 +39,7 @@ public class QueryParserImpl implements QueryParser {
     @Override
     public QueryType determineQueryType(String query) {
         if (query == null || query.trim().isEmpty()) {
-            throw new IllegalArgumentException("SQL查询不能为空");
+            throw new IllegalArgumentException("查询不能为空");
         }
         
         query = query.trim();
@@ -53,6 +57,8 @@ public class QueryParserImpl implements QueryParser {
             return QueryType.UPDATE;
         } else if (upperQuery.startsWith("DELETE")) {
             return QueryType.DELETE;
+        } else if (upperQuery.startsWith("CREATE TABLE")) {
+            return QueryType.CREATE_TABLE;
         } else {
             throw new IllegalArgumentException("不支持的查询类型: " + query);
         }
@@ -260,5 +266,81 @@ public class QueryParserImpl implements QueryParser {
                 resultMap.put(key, value);
             }
         }
+    }
+
+    /**
+     * 解析CREATE TABLE查询
+     * @param query CREATE TABLE查询字符串
+     * @return 包含表名和列定义的解析结果
+     */
+    @Override
+    public QueryComponents.QueryParser.CreateTableQueryData parseCreateTableQuery(String query) {
+        Matcher matcher = CREATE_TABLE_PATTERN.matcher(query);
+        if (!matcher.find()) {
+            throw new IllegalArgumentException("无效的CREATE TABLE查询: " + query);
+        }
+
+        String tableName = matcher.group(1).trim();
+        String columnsDefinitionStr = matcher.group(2).trim();
+        
+        Map<String, String> columnsDefinition = parseColumnsDefinition(columnsDefinitionStr);
+        
+        return new QueryComponents.QueryParser.CreateTableQueryData(tableName, columnsDefinition);
+    }
+    
+    /**
+     * 解析列定义字符串
+     * @param columnsDefinitionStr 列定义字符串
+     * @return 列名和类型的映射
+     */
+    private Map<String, String> parseColumnsDefinition(String columnsDefinitionStr) {
+        Map<String, String> result = new HashMap<>();
+        
+        // 按逗号分割，但要处理括号内的逗号
+        List<String> columnDefs = splitIgnoringParentheses(columnsDefinitionStr, ',');
+        
+        for (String columnDef : columnDefs) {
+            columnDef = columnDef.trim();
+            // 简单解析：假设每列定义的格式是"列名 类型"
+            String[] parts = columnDef.split("\\s+", 2);
+            if (parts.length >= 2) {
+                String columnName = parts[0].trim();
+                String columnType = parts[1].trim();
+                result.put(columnName, columnType);
+            }
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 按照指定的分隔符分割字符串，但忽略括号内的分隔符
+     * @param input 输入字符串
+     * @param delimiter 分隔符
+     * @return 分割后的字符串列表
+     */
+    private List<String> splitIgnoringParentheses(String input, char delimiter) {
+        List<String> result = new ArrayList<>();
+        int start = 0;
+        int parenthesesCount = 0;
+        
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (c == '(') {
+                parenthesesCount++;
+            } else if (c == ')') {
+                parenthesesCount--;
+            } else if (c == delimiter && parenthesesCount == 0) {
+                result.add(input.substring(start, i));
+                start = i + 1;
+            }
+        }
+        
+        // 添加最后一部分
+        if (start < input.length()) {
+            result.add(input.substring(start));
+        }
+        
+        return result;
     }
 }

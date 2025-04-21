@@ -1,9 +1,16 @@
 package DB.query.impl;
 
+import DB.index.Impl.IndexManagerImpl;
 import DB.index.interfaces.IndexManager;
 import DB.page.interfaces.PageManager;
 import DB.page.models.Page;
+import DB.query.interfaces.QueryComponents;
 import DB.query.interfaces.QueryComponents.*;
+import DB.query.interfaces.QueryComponents.QueryExecutor;
+import DB.query.interfaces.QueryComponents.QueryOptimizer;
+import DB.query.interfaces.QueryComponents.QueryPlan;
+import DB.query.interfaces.QueryComponents.QueryParser;
+import DB.query.interfaces.QueryComponents.QueryType;
 import DB.record.impl.RecordManagerImpl;
 import DB.record.interfaces.RecordManager;
 import DB.record.models.Record;
@@ -19,6 +26,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.lang.reflect.Field;
+import java.nio.ByteBuffer;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 /**
  * 查询核心实现
@@ -106,6 +116,9 @@ public class QueryCore implements ExtendedQueryExecutor, QueryOptimizer {
                     break;
                 case DELETE:
                     executeDeleteQuery(plan);
+                    break;
+                case CREATE_TABLE:
+                    executeCreateTableQuery(plan);
                     break;
                 default:
                     throw new IllegalArgumentException("不支持的查询类型: " + plan.getQueryType());
@@ -261,59 +274,90 @@ public class QueryCore implements ExtendedQueryExecutor, QueryOptimizer {
         try {
             // 获取页面管理器
             PageManager pageManager = tableManager.getPageManager();
+            if (pageManager == null) {
+                throw new IllegalStateException("页面管理器为空");
+            }
             
             // 为简化处理，这里假设总是使用最后一个页面
             // 实际应该根据剩余空间选择合适的页面或创建新页面
             int pageCount = 0;
+            Map<String, Integer> tablePageCounts = null;
+            
             try {
                 // 尝试获取表的页面数量
                 Field field = tableManager.getClass().getDeclaredField("tablePageCounts");
                 field.setAccessible(true);
-                Map<String, Integer> tablePageCounts = (Map<String, Integer>) field.get(tableManager);
-                pageCount = tablePageCounts.getOrDefault(tableName, 0);
+                tablePageCounts = (Map<String, Integer>) field.get(tableManager);
+                if (tablePageCounts != null) {
+                    pageCount = tablePageCounts.getOrDefault(tableName, 0);
+                    log.info("表 {} 当前页面数量: {}", tableName, pageCount);
+                } else {
+                    log.warn("无法获取tablePageCounts映射，使用默认值0");
+                }
             } catch (Exception e) {
-                log.error("获取表页面数量失败: " + tableName, e);
+                log.error("获取表页面数量失败: {} - {}", tableName, e.getMessage());
             }
             
+            Page page = null;
+            
             // 如果没有页面，创建一个新页面
-            Page page;
-            if (pageCount == 0) {
+            if (pageCount <= 0) {
+                log.info("为表 {} 创建新页面", tableName);
                 page = pageManager.createPage();
+                if (page == null) {
+                    throw new IllegalStateException("创建页面失败");
+                }
+                
+                // 获取新页面ID
+                int newPageId = page.getHeader().getPageId();
+                log.info("表 {} 新创建的页面ID: {}", tableName, newPageId);
                 
                 // 更新表的页面数量
-                try {
-                    Field field = tableManager.getClass().getDeclaredField("tablePageCounts");
-                    field.setAccessible(true);
-                    Map<String, Integer> tablePageCounts = (Map<String, Integer>) field.get(tableManager);
+                if (tablePageCounts != null) {
                     tablePageCounts.put(tableName, 1);
-                } catch (Exception e) {
-                    log.error("更新表页面数量失败: " + tableName, e);
+                    log.info("更新表 {} 的页面数量为: {}", tableName, 1);
                 }
             } else {
                 // 获取最后一个页面
-                page = pageManager.readPage(pageCount - 1);
+                int lastPageId = pageCount - 1;
+                log.info("尝试读取表 {} 的页面ID: {}", tableName, lastPageId);
+                page = pageManager.readPage(lastPageId);
                 
-                // 如果页面已满，创建新页面
-                if (pageManager.getFreeSpace(page) < 100) { // 假设一条记录至少需要100字节
+                // 如果页面不存在或已满，创建新页面
+                if (page == null || pageManager.getFreeSpace(page) < 100) { // 假设一条记录至少需要100字节
+                    log.info("表 {} 的最后页面不存在或已满，创建新页面", tableName);
                     page = pageManager.createPage();
+                    if (page == null) {
+                        throw new IllegalStateException("创建页面失败");
+                    }
+                    
+                    // 获取新页面ID
+                    int newPageId = page.getHeader().getPageId();
+                    log.info("表 {} 新创建的页面ID: {}", tableName, newPageId);
                     
                     // 更新表的页面数量
-                    try {
-                        Field field = tableManager.getClass().getDeclaredField("tablePageCounts");
-                        field.setAccessible(true);
-                        Map<String, Integer> tablePageCounts = (Map<String, Integer>) field.get(tableManager);
+                    if (tablePageCounts != null) {
                         tablePageCounts.put(tableName, pageCount + 1);
-                    } catch (Exception e) {
-                        log.error("更新表页面数量失败: " + tableName, e);
+                        log.info("更新表 {} 的页面数量为: {}", tableName, pageCount + 1);
                     }
                 }
             }
             
+            if (page == null) {
+                throw new IllegalStateException("无法获取或创建页面");
+            }
+            
             // 序列化记录
             byte[] data = serializeRecord(record, table);
+            log.info("序列化记录成功，数据长度: {}", data.length);
             
             // 使用记录管理器插入记录
             Record insertedRecord = recordManager.insertRecord(page, data, xid);
+            if (insertedRecord == null) {
+                throw new IllegalStateException("插入记录失败");
+            }
+            
+            log.info("记录插入成功: {}", insertedRecord);
             
             // 设置记录的字段值
             for (int i = 0; i < columns.size(); i++) {
@@ -324,10 +368,12 @@ public class QueryCore implements ExtendedQueryExecutor, QueryOptimizer {
             
             // 提交事务
             plan.getTransactionManager().commitTransaction(xid);
+            log.info("事务提交成功，插入记录完成");
+            
         } catch (Exception e) {
             // 回滚事务
             plan.getTransactionManager().rollbackTransaction(xid);
-            log.error("插入记录失败", e);
+            log.error("插入记录失败: {}", e.getMessage(), e);
             throw new RuntimeException("插入记录失败: " + e.getMessage(), e);
         }
 
@@ -561,6 +607,144 @@ public class QueryCore implements ExtendedQueryExecutor, QueryOptimizer {
         return deletedRecords;
     }
 
+    /**
+     * 执行CREATE TABLE查询
+     */
+    private List<Record> executeCreateTableQuery(QueryPlan plan) {
+        // 解析查询
+        QueryParserImpl parser = (QueryParserImpl) queryParser;
+        QueryParserImpl.CreateTableQueryData data = parser.parseCreateTableQuery(plan.getMetadata());
+        String tableName = data.getTableName();
+        Map<String, String> columnsDefinition = data.getColumnsDefinition();
+        
+        // 创建表对象
+        Table.TableBuilder tableBuilder = Table.builder().name(tableName);
+        
+        // 添加列
+        for (Map.Entry<String, String> entry : columnsDefinition.entrySet()) {
+            String columnName = entry.getKey();
+            String columnType = entry.getValue();
+            
+            // 解析列类型，简单处理
+            Column.DataType dataType;
+            int length = 0;
+            
+            String upperType = columnType.toUpperCase();
+            if (upperType.startsWith("INT")) {
+                dataType = Column.DataType.INT;
+            } else if (upperType.startsWith("VARCHAR")) {
+                dataType = Column.DataType.VARCHAR;
+                // 尝试从VARCHAR(n)中提取长度
+                int startIdx = upperType.indexOf('(');
+                int endIdx = upperType.indexOf(')');
+                if (startIdx > 0 && endIdx > startIdx) {
+                    try {
+                        length = Integer.parseInt(upperType.substring(startIdx + 1, endIdx).trim());
+                    } catch (NumberFormatException e) {
+                        length = 255; // 默认长度
+                    }
+                } else {
+                    length = 255;
+                }
+            } else if (upperType.startsWith("CHAR")) {
+                dataType = Column.DataType.CHAR;
+                int startIdx = upperType.indexOf('(');
+                int endIdx = upperType.indexOf(')');
+                if (startIdx > 0 && endIdx > startIdx) {
+                    try {
+                        length = Integer.parseInt(upperType.substring(startIdx + 1, endIdx).trim());
+                    } catch (NumberFormatException e) {
+                        length = 1;
+                    }
+                } else {
+                    length = 1;
+                }
+            } else if (upperType.startsWith("FLOAT")) {
+                dataType = Column.DataType.FLOAT;
+            } else if (upperType.startsWith("DOUBLE")) {
+                dataType = Column.DataType.DOUBLE;
+            } else if (upperType.startsWith("BOOLEAN")) {
+                dataType = Column.DataType.BOOLEAN;
+            } else {
+                // 不支持的类型默认为VARCHAR
+                dataType = Column.DataType.VARCHAR;
+                length = 255;
+            }
+            
+            // 创建列对象并添加到表中
+            Column column = Column.builder()
+                    .name(columnName)
+                    .dataType(dataType)
+                    .length(length)
+                    .nullable(true) // 默认允许空值
+                    .build();
+            
+            tableBuilder.column(column);
+        }
+        
+        // 构建表对象
+        Table table = tableBuilder.build();
+        
+        long xid = plan.getTransactionManager().beginTransaction();
+        try {
+            // 使用TableManager创建表
+            tableManager.createTable(table, plan.getTransactionManager());
+            log.info("表 {} 创建成功", tableName);
+            
+            // 确保表有一个初始页面
+            ensureTableHasPages(tableName);
+            
+            plan.getTransactionManager().commitTransaction(xid);
+        } catch (Exception e) {
+            plan.getTransactionManager().rollbackTransaction(xid);
+            log.error("创建表失败: {}", e.getMessage(), e);
+            throw new RuntimeException("创建表失败: " + e.getMessage(), e);
+        }
+        
+        return new ArrayList<>(); // 返回空记录列表
+    }
+    
+    /**
+     * 确保表有至少一个页面
+     */
+    private void ensureTableHasPages(String tableName) {
+        try {
+            // 尝试获取表的页面数量
+            Field field = tableManager.getClass().getDeclaredField("tablePageCounts");
+            field.setAccessible(true);
+            Map<String, Integer> tablePageCounts = (Map<String, Integer>) field.get(tableManager);
+            
+            if (tablePageCounts != null) {
+                int pageCount = tablePageCounts.getOrDefault(tableName, 0);
+                log.info("表 {} 当前页面数量: {}", tableName, pageCount);
+                
+                // 如果表没有页面，创建一个
+                if (pageCount <= 0) {
+                    PageManager pageManager = tableManager.getPageManager();
+                    if (pageManager != null) {
+                        Page page = pageManager.createPage();
+                        if (page != null) {
+                            int pageId = page.getHeader().getPageId();
+                            log.info("为表 {} 创建初始页面，ID: {}", tableName, pageId);
+                            
+                            // 更新表的页面数量
+                            tablePageCounts.put(tableName, 1);
+                            log.info("更新表 {} 的页面数量为 1", tableName);
+                        } else {
+                            log.error("为表 {} 创建初始页面失败", tableName);
+                        }
+                    } else {
+                        log.error("无法获取页面管理器");
+                    }
+                }
+            } else {
+                log.warn("无法获取tablePageCounts映射");
+            }
+        } catch (Exception e) {
+            log.error("确保表有页面失败: {} - {}", tableName, e.getMessage());
+        }
+    }
+
     //----------- 查询优化器接口实现 -----------
 
     @Override
@@ -581,6 +765,8 @@ public class QueryCore implements ExtendedQueryExecutor, QueryOptimizer {
                 return optimizeUpdateQuery(query, idxManager, txManager);
             case DELETE:
                 return optimizeDeleteQuery(query, idxManager, txManager);
+            case CREATE_TABLE:
+                return optimizeCreateTableQuery(query, idxManager, txManager);
             default:
                 throw new IllegalArgumentException("不支持的查询类型: " + queryType);
         }
@@ -628,7 +814,15 @@ public class QueryCore implements ExtendedQueryExecutor, QueryOptimizer {
 
         List<String> formattedValues = new ArrayList<>();
         for (Object value : values) {
-            formattedValues.add(SqlParameterUtils.formatParam(value));
+            if (value == null) {
+                formattedValues.add("NULL");
+            } else if (value instanceof String) {
+                formattedValues.add("'" + value + "'");
+            } else if (value instanceof Number || value instanceof Boolean) {
+                formattedValues.add(value.toString());
+            } else {
+                formattedValues.add("'" + value.toString() + "'");
+            }
         }
 
         sql.append(String.join(", ", formattedValues));
@@ -725,6 +919,27 @@ public class QueryCore implements ExtendedQueryExecutor, QueryOptimizer {
                 condition,
                 new ArrayList<>(),
                 indexName,
+                indexManager,
+                transactionManager,
+                query);
+    }
+
+    /**
+     * 优化CREATE_TABLE查询
+     */
+    private QueryPlan optimizeCreateTableQuery(String query, IndexManager indexManager, TransactionManager transactionManager) {
+        // 解析查询
+        QueryParserImpl parser = (QueryParserImpl) queryParser;
+        QueryParserImpl.CreateTableQueryData data = parser.parseCreateTableQuery(query);
+        String tableName = data.getTableName();
+        
+        // 创建查询计划
+        return new QueryPlanImpl(
+                QueryType.CREATE_TABLE,
+                tableName,
+                null,
+                new ArrayList<>(),
+                null,
                 indexManager,
                 transactionManager,
                 query);

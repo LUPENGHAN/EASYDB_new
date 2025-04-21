@@ -4,6 +4,7 @@ import DB.page.interfaces.PageManager;
 import DB.page.models.Page;
 import DB.record.models.Record;
 import DB.record.interfaces.RecordManager;
+import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import java.util.ArrayList;
@@ -12,9 +13,9 @@ import java.util.List;
 /**
  * 记录管理器实现类
  */
+@Getter
 @RequiredArgsConstructor
 public class RecordManagerImpl implements RecordManager {
-    @Getter
     private final PageManager pageManager;
     private static final byte RECORD_STATUS_VALID = 1;
     private static final byte RECORD_STATUS_DELETED = 0;

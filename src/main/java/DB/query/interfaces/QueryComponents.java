@@ -24,7 +24,9 @@ public class QueryComponents {
         /** 更新数据 */
         UPDATE,
         /** 删除数据 */
-        DELETE
+        DELETE,
+        /** 创建表 */
+        CREATE_TABLE
     }
 
     /**
@@ -215,6 +217,13 @@ public class QueryComponents {
          * @return 包含表名和条件的解析结果
          */
         DeleteQueryData parseDeleteQuery(String query);
+        
+        /**
+         * 解析CREATE TABLE查询
+         * @param query CREATE TABLE查询字符串
+         * @return 包含表名和列定义的解析结果
+         */
+        CreateTableQueryData parseCreateTableQuery(String query);
 
         /**
          * 解析条件表达式
@@ -313,6 +322,22 @@ public class QueryComponents {
             public String getColumn() { return column; }
             public String getOperator() { return operator; }
             public String getValue() { return value; }
+        }
+        
+        /**
+         * CREATE TABLE查询数据类
+         */
+        class CreateTableQueryData {
+            private final String tableName;
+            private final Map<String, String> columnsDefinition;
+
+            public CreateTableQueryData(String tableName, Map<String, String> columnsDefinition) {
+                this.tableName = tableName;
+                this.columnsDefinition = columnsDefinition;
+            }
+
+            public String getTableName() { return tableName; }
+            public Map<String, String> getColumnsDefinition() { return columnsDefinition; }
         }
     }
 

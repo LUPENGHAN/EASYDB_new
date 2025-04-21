@@ -5,6 +5,7 @@ import DB.query.interfaces.QueryComponents.*;
 import DB.record.models.Record;
 import DB.table.interfaces.TableManager;
 import DB.transaction.interfaces.TransactionManager;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
@@ -17,6 +18,13 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 public class QueryManager implements QueryService {
+    /**
+     * -- GETTER --
+     *  获取查询核心
+     *
+     * @return 查询核心
+     */
+    @Getter
     private final QueryCore queryCore;
     private final Map<String, PreparedQuery> preparedQueries = new ConcurrentHashMap<>();
 
@@ -35,13 +43,6 @@ public class QueryManager implements QueryService {
         this.queryCore = new QueryCore(tableManager, indexManager, queryParser, transactionManager);
     }
 
-    /**
-     * 获取查询核心
-     * @return 查询核心
-     */
-    public QueryCore getQueryCore() {
-        return queryCore;
-    }
 
     @Override
     public List<Record> executeQuery(String sql) {
@@ -49,17 +50,23 @@ public class QueryManager implements QueryService {
             return queryCore.executeQuery(sql);
         } catch (Exception e) {
             log.error("执行查询失败: {}", sql, e);
-            throw new RuntimeException("执行查询失败: " + e.getMessage(), e);
+            // 确保异常消息中包含表不存在信息
+            String errorMsg = (e.getMessage() != null && !e.getMessage().isEmpty())
+                    ? e.getMessage()
+                    : "表不存在或操作无效";
+            throw new RuntimeException("执行查询失败: " + errorMsg, e);
         }
     }
-
     @Override
     public int executeUpdate(String sql) {
         try {
             return queryCore.executeUpdate(sql);
         } catch (Exception e) {
             log.error("执行更新失败: {}", sql, e);
-            throw new RuntimeException("执行更新失败: " + e.getMessage(), e);
+            String errorMsg = (e.getMessage() != null && !e.getMessage().isEmpty())
+                    ? e.getMessage()
+                    : "表不存在或操作无效";
+            throw new RuntimeException("执行更新失败: " + errorMsg, e);
         }
     }
 

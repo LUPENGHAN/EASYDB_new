@@ -18,15 +18,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * 页面管理器实现类
  */
+@Getter
 @RequiredArgsConstructor
 public class PageManagerImpl implements PageManager {
-    @Getter
     private final String dataFilePath;
-    @Getter
     private final RandomAccessFile dataFile;
-    @Getter
     private final Map<Integer, Page> pageCache;
-    @Getter
     private final AtomicInteger nextPageId;
     private static final int MAX_CACHE_SIZE = 1000;
     private static final int PAGE_SIZE = 4096; // 4KB页面大小
